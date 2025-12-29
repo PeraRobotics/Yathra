@@ -1,0 +1,3 @@
+[submodule "Yathra-Firmware/components"]
+	path = Yathra-Firmware/components
+	url = https://github.com/janithcyapa/ESP-IDF-Component-Kit.git
