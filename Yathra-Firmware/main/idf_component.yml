@@ -1,0 +1,7 @@
+dependencies:
+  idf:
+    version: '>=4.1.0'
+  espp/i2c: '*'
+  espp/logger: '*'
+  espp/timer: '*'
+
