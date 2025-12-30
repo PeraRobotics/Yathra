@@ -1,54 +1,34 @@
-#include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-#include "hx711.h" // Include the library header
+#include "src/imu.h" // Include your new header
 
-static const char *TAG = "HX710B_App";
+static const char* TAG = "MAIN";
 
-// Pin Config
-#define DOUT_GPIO GPIO_NUM_19
-#define SCK_GPIO  GPIO_NUM_18
-
-extern "C" void app_main(void)
-{
-    // 1. Initialize the Device Object
-    hx711_t dev = {
-        .dout = DOUT_GPIO,
-        .pd_sck = SCK_GPIO,
-        .gain = HX711_GAIN_A_128 // Sends 25 pulses (Sets HX711_GAIN_A_64 - 10Hz , HX711_GAIN_A_128 - 40Hz)
-    };
-
-    // 2. Initialize Hardware
-    // This handles GPIO setup and internal timing automatically
-    esp_err_t err = hx711_init(&dev);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to init HX710B");
-        return;
-    }
-
-    ESP_LOGI(TAG, "HX710B Initialized (Using HX711 Driver)");
-
-    while (1)
-    {
-        // 3. Wait for sensor to be ready (TIMEOUT: 1000ms)
-        // This replaces the manual 'while(gpio_get_level...)' loop
-        esp_err_t r = hx711_wait(&dev, 1000);
-        
-        if (r != ESP_OK) {
-            ESP_LOGE(TAG, "Sensor not found (Timeout)");
-        } else {
-            int32_t data;
-            // 4. Read Data
-            r = hx711_read_data(&dev, &data);
-            if (r == ESP_OK) {
-                ESP_LOGI(TAG, "Raw: %ld", data);
-            } else {
-                ESP_LOGE(TAG, "Read Error");
-            }
+void control_loop_task(void *arg) {
+    imu_shared_data_t current_imu;
+    
+    while(1) {
+        // Get the latest data safely
+        if (imu_get_data(&current_imu)) {
+            ESP_LOGI(TAG,"Current Attitude | Heading: %f, Pitch: %f, Roll: %f, Temp: %f", current_imu.heading, current_imu.pitch, current_imu.roll, current_imu.temp_c);
         }
-
-        vTaskDelay(pdMS_TO_TICKS(500));
+        
+        // Run control loop at 100Hz (10ms)
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
+extern "C" void app_main() { 
+    
+    imu_init();
+
+    static imu_task_config_t imu_cfg = { .enable_mag = false };
+    xTaskCreate(imu_task, "imu_task", 4096, (void *)&imu_cfg, 10, NULL);
+
+    xTaskCreate(control_loop_task, "control_task", 4096, NULL, 5, NULL);
+
+    while (true) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
