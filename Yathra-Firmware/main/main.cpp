@@ -2,21 +2,18 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include <string.h>
-#include "util_i2c_scanner.hpp"
-// Include your custom headers
+
+#include "util_i2c.hpp"
 #include "src/imu.h" 
 #include "src/telemetry.h"
-#include <string.h>
-#include "driver/i2c.h"
-
-
+#include "src/baro.h"
 
 static const char* TAG = "SUB_LOG";
 
 void control_loop_task(void *arg) {
     imu_shared_data_t imu_data;
-    // command_shared_data_t cmd_data; // Local struct to hold received commands
-    
+    command_shared_data_t cmd_data;
+    barometer_shared_data_t baro_data;
     while(1) {
         // Get Sensor Data
         if (imu_get_data(&imu_data)) {
@@ -29,56 +26,62 @@ void control_loop_task(void *arg) {
         }
 
         // Get Command Data using the new Getter
-        // if (telemetry_get_command(&cmd_data)) {
-        //     // Check if system is enabled
-        //     if (cmd_data.system_enable) {
-        //         // Run control logic using cmd_data.target_heading, etc.
-        //     }
-        // }
+        if (telemetry_get_command(&cmd_data)) {
+            // Check if system is enabled
+            // if (cmd_data.system_enable) {
+                // Run control logic using cmd_data.target_heading, etc.
+            // }
+        }
         
+        if (barometer_get_data(&baro_data)) {
+         ESP_LOGI(TAG, "Barometer Data - HX1 Raw: %ld HX2 Raw: %ld", 
+                  baro_data.hx1_raw, baro_data.hx2_raw);
+        }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
-#define I2C_MASTER_SDA_IO GPIO_NUM_21
-#define I2C_MASTER_SCL_IO GPIO_NUM_22
-#define I2C_MASTER_NUM    I2C_NUM_0
-#define I2C_MASTER_FREQ   100000
+// // --- I2C ---
+// #define I2C_SDA_PIN  21
+// #define I2C_SCL_PIN  22
 
+// // --- HX711 Load Cells ---
+// // HX711 1
+// #define HX1_DT_PIN   34  // Input Only pin
+// #define HX1_SCK_PIN  4
+// // HX711 2
+// #define HX2_DT_PIN   35  // Input Only pin
+// #define HX2_SCK_PIN  5
+
+// // --- ESCs (Motors) ---
+// // We can put these in an array for easy iteration
+// const int esc_pins[8] = {13, 18, 19, 23, 25, 26, 27, 32};
+
+#define DOUT_GPIO GPIO_NUM_34
+#define SCK_GPIO  GPIO_NUM_4
 
 
 extern "C" void app_main() { 
-    i2c_config_t conf = {};
-    conf.mode = I2C_MODE_MASTER;
-    conf.sda_io_num = I2C_MASTER_SDA_IO;
-    conf.scl_io_num = I2C_MASTER_SCL_IO;
-    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.master.clk_speed = I2C_MASTER_FREQ;
-    ESP_ERROR_CHECK(i2c_param_config(I2C_MASTER_NUM, &conf));
-    ESP_ERROR_CHECK(i2c_driver_install(I2C_MASTER_NUM, conf.mode, 0, 0, 0));
-
 
     ESP_LOGI(TAG, "Starting application");
+    // i2c_util::i2c_init();
+    // i2c_util::i2c_scan();
+
     // Initialize modules
-    imu_init(); 
-    telemetry_init(); // Initializes UART and Mutex
+    // imu_init(); 
+    // telemetry_init(); 
+    barometer_init();
+    
+    // static imu_task_config_t imu_cfg = { .enable_mag = false };
+    // xTaskCreate(imu_task, "imu_task", 4096, (void *)&imu_cfg, 10, NULL);
 
-    static imu_task_config_t imu_cfg = { .enable_mag = false };
-    xTaskCreate(imu_task, "imu_task", 4096, (void *)&imu_cfg, 10, NULL);
-
-    xTaskCreate(telemetry_task, "telemetry_task", 4096, NULL, 5, NULL);
+    xTaskCreate(barometer_task, "HX_Task", 4096, NULL, 5, NULL);
+    
     xTaskCreate(control_loop_task, "control_task", 4096, NULL, 5, NULL);
-
-    // qmc5883l_init();
-    // int16_t mag_x, mag_y, mag_z;
+    
+    // xTaskCreate(telemetry_task, "telemetry_task", 4096, NULL, 5, NULL);
 
     while (true) {
-        // Read QMC5883L
-        // qmc5883l_read_mag(&mag_x, &mag_y, &mag_z);
-        
-        // Print Data
-        // printf("Magnetometer: X=%d Y=%d Z=%d\n", mag_x, mag_y, mag_z);
 
         vTaskDelay(pdMS_TO_TICKS(100)); // 10Hz sample rate for printing
     }
