@@ -1,4 +1,6 @@
-idf_component_register  ( SRCS "main.cpp" "src/imu.cpp"
+idf_component_register  ( SRCS  "main.cpp" 
+                                "src/imu.cpp"
+                                "src/telemetry.cpp"
                         INCLUDE_DIRS "."
                         REQUIRES 
                             driver 

@@ -17,13 +17,13 @@ extern "C" {
     #include "common.h"
 }
 
-static const char* TAG = "IMU";
+static const char* TAG = "SUB_LOG";
 
 #define I2C_MASTER_NUM I2C_NUM_0 
 
 // --- Shared Data & Mutex ---
 static imu_shared_data_t g_imu_data;      // The actual data storage
-static SemaphoreHandle_t g_imu_mutex = NULL; // The lock
+static SemaphoreHandle_t xImuMutex = NULL; // The lock
 
 // --- Calibration (Same as before) ---
 static calibration_t cal = {
@@ -49,13 +49,13 @@ static void transform_mag(vector_t *v) {
 // --- Public Getter Function ---
 bool imu_get_data(imu_shared_data_t *out_data)
 {
-    if (g_imu_mutex == NULL) return false;
+    if (xImuMutex == NULL) return false;
 
     // Try to take the mutex (wait up to 10ms)
-    if (xSemaphoreTake(g_imu_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+    if (xSemaphoreTake(xImuMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
         // Copy the data safely
         *out_data = g_imu_data;
-        xSemaphoreGive(g_imu_mutex);
+        xSemaphoreGive(xImuMutex);
         return true;
     }
     return false;
@@ -94,8 +94,8 @@ static void run_imu(bool use_mag)
     }
 
     // 3. Update Shared Data (Protected by Mutex)
-    if (g_imu_mutex != NULL) {
-        if (xSemaphoreTake(g_imu_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+    if (xImuMutex != NULL) {
+        if (xSemaphoreTake(xImuMutex, pdMS_TO_TICKS(5)) == pdTRUE) {
             
             // Update Raw Data
             g_imu_data.accel = va;
@@ -110,7 +110,7 @@ static void run_imu(bool use_mag)
             // Optional: Temperature
             get_temperature_celsius(&g_imu_data.temp_c);
 
-            xSemaphoreGive(g_imu_mutex);
+            xSemaphoreGive(xImuMutex);
         }
     }
 
@@ -124,8 +124,8 @@ static void run_imu(bool use_mag)
 void imu_init(void)
 {
     // Create the Mutex
-    g_imu_mutex = xSemaphoreCreateMutex();
-    if (g_imu_mutex == NULL) {
+    xImuMutex = xSemaphoreCreateMutex();
+    if (xImuMutex == NULL) {
         ESP_LOGE(TAG, "Failed to create IMU Mutex");
     }
 }
@@ -137,7 +137,7 @@ void imu_task(void *arg)
     if (config != NULL) use_mag = config->enable_mag;
 
     // Optional: Call init here if not called in main
-    if (g_imu_mutex == NULL) imu_init();
+    if (xImuMutex == NULL) imu_init();
 
 #ifdef CONFIG_CALIBRATION_MODE
     calibrate_gyro();
