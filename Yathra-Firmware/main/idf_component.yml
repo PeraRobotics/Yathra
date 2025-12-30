@@ -5,3 +5,4 @@ dependencies:
   espp/logger: '*'
   espp/timer: '*'
 
+  esp-idf-lib/hx711: '*'
