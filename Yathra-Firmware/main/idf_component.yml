@@ -6,4 +6,4 @@ dependencies:
   espp/timer: '*'
 
   esp-idf-lib/hx711: '*'
-  esp-idf-lib/mpu6050: ^2.1.3
+

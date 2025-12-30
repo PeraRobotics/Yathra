@@ -15,6 +15,7 @@ extern "C" {
     #include "mpu9250.h"
     #include "calibrate.h"
     #include "common.h"
+    #include "sens_qmc5883l.h"
 }
 
 static const char* TAG = "SUB_LOG";
@@ -65,6 +66,9 @@ bool imu_get_data(imu_shared_data_t *out_data)
 static void run_imu(bool use_mag)
 {
   i2c_mpu9250_init(&cal, use_mag); // Ensure your libs support this signature!
+  if(!use_mag){
+    qmc5883l_init(I2C_NUM_0);
+  }
   ahrs_init(SAMPLE_FREQ_Hz, 0.8);
 
   while (true)
@@ -81,18 +85,20 @@ static void run_imu(bool use_mag)
         ESP_ERROR_CHECK(get_accel_gyro(&va, &vg));
         transform_accel_gyro(&va);
         transform_accel_gyro(&vg);
-        vm = {0,0,0};
+        qmc5883l_read_mag_float((qmc_vector_t*)&vm); 
+        // vm = {0,0,0};
     }
 
     // 2. Run Filter (Madgwick/Mahony)
-    if (use_mag) {
-        ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
+    // if (use_mag) {
+    //     ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
+    //                 va.x, va.y, va.z, vm.x, vm.y, vm.z);
+    // } else {
+    //     ahrs_update_imu(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
+    //                     va.x, va.y, va.z);
+    // }
+    ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
                     va.x, va.y, va.z, vm.x, vm.y, vm.z);
-    } else {
-        ahrs_update_imu(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
-                        va.x, va.y, va.z);
-    }
-
     // 3. Update Shared Data (Protected by Mutex)
     if (xImuMutex != NULL) {
         if (xSemaphoreTake(xImuMutex, pdMS_TO_TICKS(5)) == pdTRUE) {
