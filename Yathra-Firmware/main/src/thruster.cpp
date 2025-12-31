@@ -120,11 +120,12 @@ void ThrusterController::stopAll() {
 }
 
 uint32_t ThrusterController::calculatePulseWidth(float percent) {
-    float clamped = std::clamp(percent, -100.0f, 100.0f);
+    float clamped = std::clamp(percent, -1.0f, 1.0f);
     
     if (clamped >= 0) {
-        return ESC_NEUTRAL_PULSE + (uint32_t)(clamped * (ESC_MAX_PULSE - ESC_NEUTRAL_PULSE) / 100.0f);
+        return ESC_NEUTRAL_PULSE + (uint32_t)(clamped * (ESC_MAX_PULSE - ESC_NEUTRAL_PULSE));
     } else {
-        return ESC_NEUTRAL_PULSE + (uint32_t)(clamped * (ESC_NEUTRAL_PULSE - ESC_MIN_PULSE) / 100.0f);
+        return ESC_NEUTRAL_PULSE + (uint32_t)(clamped * (ESC_NEUTRAL_PULSE - ESC_MIN_PULSE));
     }
 }
+

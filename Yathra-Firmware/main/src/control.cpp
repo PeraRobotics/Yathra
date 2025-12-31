@@ -1,6 +1,7 @@
 #include "control.hpp"
 #include <math.h>
 #include <algorithm>
+#include <vector>
 
 // FreeRTOS Includes
 #include "freertos/FreeRTOS.h"
@@ -11,6 +12,7 @@
 #include "imu.h"       
 #include "baro.h" 
 #include "telemetry.h" 
+#include "thruster.hpp"
 
 
 
@@ -85,6 +87,13 @@ float normalize_angle(float angle) {
 
 void control_loop_task(void *arg) {
 
+    std::vector<int> thruster_pins = {26, 25, 33, 32, 23, 4};
+    ThrusterController vehicle;
+
+    vehicle.init(thruster_pins);
+    vehicle.stopAll();
+    vTaskDelay(pdMS_TO_TICKS(3000)); 
+
     imu_shared_data_t imu_data;
     barometer_shared_data_t baro_data;
     robot_shared_state_t robot_state;
@@ -147,7 +156,6 @@ void control_loop_task(void *arg) {
                     ESP_LOGW(TAG, ">>> SYSTEM ARMED <<< | Init Heading Locked: %.2f", startup_heading_offset);
                 }
             } 
-            
             // --- PHASE 2: ACTIVE CONTROL ---
             else {
                 // 1. Process Heading
@@ -212,10 +220,16 @@ void control_loop_task(void *arg) {
                     );
                     log_counter = 0;
                 }
+                // 6. Apply Thruster Outputs
+                t[0] = 0.0;
+                t[1] = 0.0;
+                t[2] = 0.0;
+                t[3] = 0.0;
+                vehicle.setSpeeds(std::vector<float>(t, t + 1));
             }
         } 
         else {
-            ESP_LOGW(TAG, "Waiting for valid sensors...");
+            vehicle.stopAll();
         }
 
         // Apply Motor Output (Keep this outside the if/else to ensure 0 is written during calibration)
@@ -224,9 +238,9 @@ void control_loop_task(void *arg) {
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(CONTROL_LOOP_DELAY));
     }
 }
-// Thruster 1: Front-Right-Top
-// Thruster 2: Front-Left-Top
-// Thruster 3: Rear-Left-Top
-// Thruster 4: Rear-Right-Top
-// Thruster 5: Front-Left-Bottom
-// Thruster 6: Front-Right-Bottom 
+// Thruster 1: Front-Right
+// Thruster 2: Front-Left
+// Thruster 3: Rear-Right
+// Thruster 4: Rear-Left
+// Thruster 5: Middle-Right
+// Thruster 6: Middle-Left
