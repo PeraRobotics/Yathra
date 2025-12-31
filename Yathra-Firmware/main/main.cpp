@@ -11,8 +11,29 @@
 static const char* TAG = "SUB_LOG";
 
 void control_loop_task(void *arg) {
+
+    // robot_shared_state_t current_state;
+
+    // while(1) {
+    //     // 1. Update State (Thread Safe)
+    //     telemetry_get_state(&current_state);
+
+    //     // 2. Use Config
+    //     if (current_state.config.arm) {
+    //         float err = current_state.target.h - current_height;
+    //         float output = err * current_state.config.kp;
+            
+    //         // Check motor reverse config
+    //         if (current_state.config.motor_rev[0]) {
+    //              // reverse motor 1 logic
+    //         }
+    //     }
+
+    //     vTaskDelay(pdMS_TO_TICKS(10));
+    // }
+
+
     imu_shared_data_t imu_data;
-    command_shared_data_t cmd_data;
     barometer_shared_data_t baro_data;
     while(1) {
         // Get Sensor Data
@@ -24,18 +45,10 @@ void control_loop_task(void *arg) {
         //              imu_data.mag.x, imu_data.mag.y, imu_data.mag.z);
         // }
         }
-
-        // Get Command Data using the new Getter
-        if (telemetry_get_command(&cmd_data)) {
-            // Check if system is enabled
-            // if (cmd_data.system_enable) {
-                // Run control logic using cmd_data.target_heading, etc.
-            // }
-        }
         
         if (barometer_get_data(&baro_data)) {
-         ESP_LOGI(TAG, "Barometer Data - HX1 Raw: %ld HX2 Raw: %ld", 
-                  baro_data.hx1_raw, baro_data.hx2_raw);
+        //  ESP_LOGI(TAG, "Barometer Data - HX1 Raw: %ld HX2 Raw: %ld", 
+        //           baro_data.hx1_raw, baro_data.hx2_raw);
         }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
@@ -57,29 +70,29 @@ void control_loop_task(void *arg) {
 // // We can put these in an array for easy iteration
 // const int esc_pins[8] = {13, 18, 19, 23, 25, 26, 27, 32};
 
-#define DOUT_GPIO GPIO_NUM_34
-#define SCK_GPIO  GPIO_NUM_4
 
 
+
+static imu_task_config_t imu_cfg = { .enable_mag = false };
 extern "C" void app_main() { 
 
     ESP_LOGI(TAG, "Starting application");
-    // i2c_util::i2c_init();
-    // i2c_util::i2c_scan();
+
+    i2c_util::i2c_init();
+    i2c_util::i2c_scan();
 
     // Initialize modules
-    // imu_init(); 
-    // telemetry_init(); 
+    imu_init(); 
+    telemetry_init(); 
     barometer_init();
     
-    // static imu_task_config_t imu_cfg = { .enable_mag = false };
-    // xTaskCreate(imu_task, "imu_task", 4096, (void *)&imu_cfg, 10, NULL);
 
-    xTaskCreate(barometer_task, "HX_Task", 4096, NULL, 5, NULL);
-    
-    xTaskCreate(control_loop_task, "control_task", 4096, NULL, 5, NULL);
-    
-    // xTaskCreate(telemetry_task, "telemetry_task", 4096, NULL, 5, NULL);
+    xTaskCreatePinnedToCore(control_loop_task, "CONTROL", 4096, NULL,20, NULL, 1);
+    xTaskCreatePinnedToCore(imu_task, "IMU", 4096, NULL,19, NULL, 1);
+
+    xTaskCreatePinnedToCore(telemetry_rx_task, "TEL_RX", 3072, NULL,10, NULL, 0);
+    xTaskCreatePinnedToCore(telemetry_tx_task, "TEL_TX", 2048, NULL,3, NULL, 0);
+    xTaskCreatePinnedToCore(barometer_task, "BARO", 3072, NULL,5, NULL, 0);
 
     while (true) {
 

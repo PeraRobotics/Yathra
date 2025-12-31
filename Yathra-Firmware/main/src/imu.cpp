@@ -9,6 +9,7 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "driver/i2c.h"
+#include "src/telemetry.h"
 
 extern "C" {
     #include "ahrs.h"
@@ -27,13 +28,21 @@ static imu_shared_data_t g_imu_data;      // The actual data storage
 static SemaphoreHandle_t xImuMutex = NULL; // The lock
 
 // --- Calibration (Same as before) ---
+// static calibration_t cal = {
+//     .mag_offset = {.x = 25.183594, .y = 57.519531, .z = -62.648438},
+//     .mag_scale = {.x = 1.513449, .y = 1.557811, .z = 1.434039},
+//     .gyro_bias_offset = {.x = 0.303956, .y = -1.049768, .z = -0.403782},
+//     .accel_offset = {.x = 0.020900, .y = 0.014688, .z = -0.002580},
+//     .accel_scale_lo = {.x = -0.992052, .y = -0.990010, .z = -1.011147},
+//     .accel_scale_hi = {.x = 1.013558, .y = 1.011903, .z = 1.019645}
+// };
 static calibration_t cal = {
-    .mag_offset = {.x = 25.183594, .y = 57.519531, .z = -62.648438},
-    .mag_scale = {.x = 1.513449, .y = 1.557811, .z = 1.434039},
-    .gyro_bias_offset = {.x = 0.303956, .y = -1.049768, .z = -0.403782},
-    .accel_offset = {.x = 0.020900, .y = 0.014688, .z = -0.002580},
-    .accel_scale_lo = {.x = -0.992052, .y = -0.990010, .z = -1.011147},
-    .accel_scale_hi = {.x = 1.013558, .y = 1.011903, .z = 1.019645}
+    .mag_offset = {.x = 0, .y = 0, .z = 0},
+    .mag_scale = {.x = 0, .y = 0, .z = 0},
+    .gyro_bias_offset = {.x = 0, .y = 0, .z = 0},
+    .accel_offset = {.x = 0, .y = 0, .z = 0},
+    .accel_scale_lo = {.x = 0, .y = 0, .z = 0},
+    .accel_scale_hi = {.x = 0, .y = 0, .z = 0},
 };
 
 // --- Transformation Functions (Same as before) ---
@@ -45,6 +54,23 @@ static void transform_accel_gyro(vector_t *v) {
 static void transform_mag(vector_t *v) {
   float x = v->x; float y = v->y; float z = v->z;
   v->x = -y; v->y = z; v->z = -x;
+}
+
+void pack_imu_message(const imu_shared_data_t *src, imu_msg_t *dest) {
+    // Map Accelerometer
+    dest->accel[0] = src->accel.x;
+    dest->accel[1] = src->accel.y;
+    dest->accel[2] = src->accel.z;
+
+    // Map Gyroscope
+    dest->gyro[0] = src->gyro.x;
+    dest->gyro[1] = src->gyro.y;
+    dest->gyro[2] = src->gyro.z;
+
+    // Map Magnetometer
+    dest->mag[0] = src->mag.x;
+    dest->mag[1] = src->mag.y;
+    dest->mag[2] = src->mag.z;
 }
 
 // --- Public Getter Function ---
@@ -100,6 +126,7 @@ static void run_imu(bool use_mag)
     ahrs_update(DEG2RAD(vg.x), DEG2RAD(vg.y), DEG2RAD(vg.z),
                     va.x, va.y, va.z, vm.x, vm.y, vm.z);
     // 3. Update Shared Data (Protected by Mutex)
+
     if (xImuMutex != NULL) {
         if (xSemaphoreTake(xImuMutex, pdMS_TO_TICKS(5)) == pdTRUE) {
             
@@ -119,7 +146,19 @@ static void run_imu(bool use_mag)
             xSemaphoreGive(xImuMutex);
         }
     }
+    // imu_msg_t imu_data;
+    // pack_imu_message(&g_imu_data, &imu_data);
+    // telemetry_send_imu(&imu_data);
 
+
+    ahrs_msg_t ahrs_msg;
+        ahrs_msg.roll = g_imu_data.roll;
+        ahrs_msg.pitch = g_imu_data.pitch;
+        ahrs_msg.heading = g_imu_data.heading;
+    ESP_LOGI(TAG, "AHRS Data - Heading: %.2f Roll: %.2f Pitch: %.2f", 
+             ahrs_msg.heading, ahrs_msg.roll, ahrs_msg.pitch);
+    telemetry_send_ahrs(&ahrs_msg);
+    
     // Pause to maintain Sample Rate
     pause(); 
   }
