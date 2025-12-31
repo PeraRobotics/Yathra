@@ -151,13 +151,13 @@ static void run_imu(bool use_mag)
     // telemetry_send_imu(&imu_data);
 
 
-    ahrs_msg_t ahrs_msg;
-        ahrs_msg.roll = g_imu_data.roll;
-        ahrs_msg.pitch = g_imu_data.pitch;
-        ahrs_msg.heading = g_imu_data.heading;
-    ESP_LOGI(TAG, "AHRS Data - Heading: %.2f Roll: %.2f Pitch: %.2f", 
-             ahrs_msg.heading, ahrs_msg.roll, ahrs_msg.pitch);
-    telemetry_send_ahrs(&ahrs_msg);
+    // ahrs_msg_t ahrs_msg;
+    //     ahrs_msg.roll = g_imu_data.roll;
+    //     ahrs_msg.pitch = g_imu_data.pitch;
+    //     ahrs_msg.heading = g_imu_data.heading;
+    // ESP_LOGI(TAG, "AHRS Data - Heading: %.2f Roll: %.2f Pitch: %.2f", 
+    //          ahrs_msg.heading, ahrs_msg.roll, ahrs_msg.pitch);
+    // telemetry_send_ahrs(&ahrs_msg);
     
     // Pause to maintain Sample Rate
     pause(); 

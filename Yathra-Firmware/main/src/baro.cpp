@@ -46,7 +46,8 @@ void barometer_task(void *pvParameters)
         if (xBarometerMutex != NULL) {
              if (xSemaphoreTake(xBarometerMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
                 if (err1 == ESP_OK) g_sensor_data.hx1_raw = val1;
-                if (err2 == ESP_OK) g_sensor_data.hx2_raw = val2;       
+                if (err2 == ESP_OK) g_sensor_data.hx2_raw = val2;    
+                g_sensor_data.depth = 0.0;   
                 xSemaphoreGive(xBarometerMutex);
             }
         }

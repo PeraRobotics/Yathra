@@ -2,8 +2,9 @@ idf_component_register  ( SRCS  "main.cpp"
                                 "src/imu.cpp"
                                 "src/telemetry.cpp"
                                 "src/baro.cpp"
-
-                        INCLUDE_DIRS "."
+                                "src/thruster.cpp"
+                                "src/control.cpp"
+                        INCLUDE_DIRS "." "src"
                         REQUIRES 
                             driver 
                             util_i2c
