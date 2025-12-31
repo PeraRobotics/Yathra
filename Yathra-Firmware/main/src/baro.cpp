@@ -52,12 +52,11 @@ void barometer_task(void *pvParameters)
             }
         }
 
-        // baro_msg_t baro_data;
-        // baro_data.pressure_out = (float)g_sensor_data.hx1_raw;
-        // baro_data.pressure_in = (float)g_sensor_data.hx2_raw;
-        // baro_data.temp_in = 0.0f; 
-        // ESP_LOGI(TAG, "Baro Data - Out");
-        // telemetry_send_baro(&baro_data);
+        baro_msg_t baro_data;
+        baro_data.pressure_out = (float)g_sensor_data.hx1_raw;
+        baro_data.pressure_in = (float)g_sensor_data.hx2_raw;
+        baro_data.temp_in = 0.0f; 
+        telemetry_send_baro(&baro_data);
 
         vTaskDelay(pdMS_TO_TICKS(100)); 
     }

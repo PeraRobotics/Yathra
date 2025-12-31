@@ -28,22 +28,22 @@ static imu_shared_data_t g_imu_data;      // The actual data storage
 static SemaphoreHandle_t xImuMutex = NULL; // The lock
 
 // --- Calibration (Same as before) ---
-// static calibration_t cal = {
-//     .mag_offset = {.x = 25.183594, .y = 57.519531, .z = -62.648438},
-//     .mag_scale = {.x = 1.513449, .y = 1.557811, .z = 1.434039},
-//     .gyro_bias_offset = {.x = 0.303956, .y = -1.049768, .z = -0.403782},
-//     .accel_offset = {.x = 0.020900, .y = 0.014688, .z = -0.002580},
-//     .accel_scale_lo = {.x = -0.992052, .y = -0.990010, .z = -1.011147},
-//     .accel_scale_hi = {.x = 1.013558, .y = 1.011903, .z = 1.019645}
-// };
 static calibration_t cal = {
-    .mag_offset = {.x = 0, .y = 0, .z = 0},
-    .mag_scale = {.x = 0, .y = 0, .z = 0},
-    .gyro_bias_offset = {.x = 0, .y = 0, .z = 0},
-    .accel_offset = {.x = 0, .y = 0, .z = 0},
-    .accel_scale_lo = {.x = 0, .y = 0, .z = 0},
-    .accel_scale_hi = {.x = 0, .y = 0, .z = 0},
+    .mag_offset = {.x = 25.183594, .y = 57.519531, .z = -62.648438},
+    .mag_scale = {.x = 1.513449, .y = 1.557811, .z = 1.434039},
+    .gyro_bias_offset = {.x = 0.303956, .y = -1.049768, .z = -0.403782},
+    .accel_offset = {.x = 0.020900, .y = 0.014688, .z = -0.002580},
+    .accel_scale_lo = {.x = -0.992052, .y = -0.990010, .z = -1.011147},
+    .accel_scale_hi = {.x = 1.013558, .y = 1.011903, .z = 1.019645}
 };
+// static calibration_t cal = {
+//     .mag_offset = {.x = 0, .y = 0, .z = 0},
+//     .mag_scale = {.x = 0, .y = 0, .z = 0},
+//     .gyro_bias_offset = {.x = 0, .y = 0, .z = 0},
+//     .accel_offset = {.x = 0, .y = 0, .z = 0},
+//     .accel_scale_lo = {.x = 0, .y = 0, .z = 0},
+//     .accel_scale_hi = {.x = 0, .y = 0, .z = 0},
+// };
 
 // --- Transformation Functions (Same as before) ---
 static void transform_accel_gyro(vector_t *v) {
@@ -142,22 +142,22 @@ static void run_imu(bool use_mag)
             
             // Optional: Temperature
             get_temperature_celsius(&g_imu_data.temp_c);
-
+            
+            g_imu_data.roll = g_imu_data.roll+90.0;
+            
             xSemaphoreGive(xImuMutex);
         }
     }
-    // imu_msg_t imu_data;
-    // pack_imu_message(&g_imu_data, &imu_data);
-    // telemetry_send_imu(&imu_data);
+    imu_msg_t imu_data;
+    pack_imu_message(&g_imu_data, &imu_data);
+    telemetry_send_imu(&imu_data);
 
 
-    // ahrs_msg_t ahrs_msg;
-    //     ahrs_msg.roll = g_imu_data.roll;
-    //     ahrs_msg.pitch = g_imu_data.pitch;
-    //     ahrs_msg.heading = g_imu_data.heading;
-    // ESP_LOGI(TAG, "AHRS Data - Heading: %.2f Roll: %.2f Pitch: %.2f", 
-    //          ahrs_msg.heading, ahrs_msg.roll, ahrs_msg.pitch);
-    // telemetry_send_ahrs(&ahrs_msg);
+    ahrs_msg_t ahrs_msg;
+        ahrs_msg.roll = g_imu_data.roll;
+        ahrs_msg.pitch = g_imu_data.pitch;
+        ahrs_msg.heading = g_imu_data.heading;
+    telemetry_send_ahrs(&ahrs_msg);
     
     // Pause to maintain Sample Rate
     pause(); 

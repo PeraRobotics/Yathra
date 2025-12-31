@@ -60,19 +60,22 @@ class RobotLink:
                     packet_id = packet_id_byte[0]
 
                     # 3. Decode based on ID
-                    if packet_id == TEL_ID_IMU:
-                        data = self.ser.read(struct.calcsize(FMT_IMU))
-                        if len(data) == struct.calcsize(FMT_IMU):
-                            fields = struct.unpack(FMT_IMU, data)
-                            print(f"[IMU] Acc: {fields[0]:.2f}, {fields[1]:.2f}, {fields[2]:.2f} | Gyro: {fields[3]:.2f}...")
+                    # if packet_id == TEL_ID_IMU:
+                    #     data = self.ser.read(struct.calcsize(FMT_IMU))
+                    #     if len(data) == struct.calcsize(FMT_IMU):
+                    #         # Unpack all 9 floats
+                    #         ax, ay, az, gx, gy, gz, mx, my, mz = struct.unpack(FMT_IMU, data)
+                            
+                    #         # Print all of them
+                    #         print(f"[IMU] A: {ax:.2f} {ay:.2f} {az:.2f} | G: {gx:.2f} {gy:.2f} {gz:.2f} | M: {mx:.2f} {my:.2f} {mz:.2f}")
                     
-                    elif packet_id == TEL_ID_AHRS:
-                        data = self.ser.read(struct.calcsize(FMT_AHRS))
-                        if len(data) == struct.calcsize(FMT_AHRS):
-                            h, p, r = struct.unpack(FMT_AHRS, data)
-                            print(f"[AHRS] H: {h:.1f} P: {p:.1f} R: {r:.1f}")
+                    # if packet_id == TEL_ID_AHRS:
+                    #     data = self.ser.read(struct.calcsize(FMT_AHRS))
+                    #     if len(data) == struct.calcsize(FMT_AHRS):
+                    #         h, p, r = struct.unpack(FMT_AHRS, data)
+                    #         print(f"[AHRS] H: {h:.1f} P: {p:.1f} R: {r:.1f}")
 
-                    elif packet_id == TEL_ID_BARO:
+                    if packet_id == TEL_ID_BARO:
                         data = self.ser.read(struct.calcsize(FMT_BARO))
                         if len(data) == struct.calcsize(FMT_BARO):
                             p_out, p_in, temp = struct.unpack(FMT_BARO, data)

@@ -22,20 +22,22 @@ extern "C" void app_main() {
 
     i2c_util::i2c_init();
     i2c_util::i2c_scan();
-
     imu_init(); 
-    // telemetry_init(); 
-    barometer_init();
-    vehicle.init(thruster_pins);
-    vehicle.stopAll();
-    vTaskDelay(pdMS_TO_TICKS(3000)); 
-
-
-    // xTaskCreatePinnedToCore(control_loop_task, "CONTROL", 4096, NULL,20, NULL, 1);
     xTaskCreatePinnedToCore(imu_task, "IMU", 4096, (void *)&imu_cfg,19, NULL, 1);
+    
+    barometer_init();
+    xTaskCreatePinnedToCore(barometer_task, "BARO", 3072, NULL,5, NULL, 0);
+
+    // telemetry_init(); 
     // xTaskCreatePinnedToCore(telemetry_rx_task, "TEL_RX", 3072, NULL,10, NULL, 0);
     // xTaskCreatePinnedToCore(telemetry_tx_task, "TEL_TX", 2048, NULL,3, NULL, 0);
-    xTaskCreatePinnedToCore(barometer_task, "BARO", 3072, NULL,5, NULL, 0);
+
+    xTaskCreatePinnedToCore(control_loop_task, "CONTROL", 4096, NULL,20, NULL, 1);
+    // vehicle.init(thruster_pins);
+    // vehicle.stopAll();
+    // vTaskDelay(pdMS_TO_TICKS(3000)); 
+
+
 
     while (true) {
 

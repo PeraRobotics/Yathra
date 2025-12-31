@@ -78,7 +78,7 @@ void control_loop_task(void *arg) {
 
     // Initialize State
     robot_state.config.arm = false;
-    robot_state.config.kp = 1.0f; robot_state.config.ki = 0.0f; robot_state.config.kd = 0.0f;
+    robot_state.config.kp = 0.01f; robot_state.config.ki = 0.0f; robot_state.config.kd = 0.0f;
     robot_state.target.v = 0.0f; robot_state.target.w = 0.0f; robot_state.target.h = 0.0f; 
 
     // Initialize PIDs
