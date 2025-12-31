@@ -33,7 +33,7 @@ typedef struct __attribute__((packed)){
 typedef struct __attribute__((packed)){
     float pressure_out;
     float pressure_in;
-    float temp_in;
+    float depth;
 } baro_msg_t;
 
 // --- Incoming Command Structures ---

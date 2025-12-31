@@ -2,10 +2,19 @@
 #include "esp_log.h"
 #include "freertos/task.h"
 #include "src/telemetry.h"
+#include <iostream>
 
 extern "C" {
     #include "hx711.h"
 }
+
+// 0cm -> -878756
+// 5cm -> -113575
+// 10cm -> -140500
+// 15cm -> -170936
+// 20cm -> -200300
+// 25cm -> -227200
+// 30cm -> -247000
 
 static const char *TAG = "BARO_METER";
 
@@ -15,6 +24,21 @@ static barometer_shared_data_t g_sensor_data;
 
 static hx711_t dev_hx1;
 static hx711_t dev_hx2;
+
+const long SURFACE_OFFSET = -878756;
+const float UNITS_PER_CM = -55730.0f;
+const long SURFACE_THRESHOLD = -850000;
+
+float getDepth(long raw_reading) {
+    if (raw_reading > SURFACE_THRESHOLD) {
+        return 0.0f;
+    }
+
+    // Linear equation: y = mx + c
+float depth_magnitude = (raw_reading - SURFACE_OFFSET) / UNITS_PER_CM;
+    // Optional: Clamp to 0 if noise makes it slightly negative in air
+  return -depth_magnitude;
+}
 
 // --- Task Function (Must match the name in header) ---
 void barometer_task(void *pvParameters)
@@ -47,7 +71,7 @@ void barometer_task(void *pvParameters)
              if (xSemaphoreTake(xBarometerMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
                 if (err1 == ESP_OK) g_sensor_data.hx1_raw = val1;
                 if (err2 == ESP_OK) g_sensor_data.hx2_raw = val2;    
-                g_sensor_data.depth = 0.0;   
+                g_sensor_data.depth = getDepth(g_sensor_data.hx1_raw);  
                 xSemaphoreGive(xBarometerMutex);
             }
         }
@@ -55,7 +79,7 @@ void barometer_task(void *pvParameters)
         baro_msg_t baro_data;
         baro_data.pressure_out = (float)g_sensor_data.hx1_raw;
         baro_data.pressure_in = (float)g_sensor_data.hx2_raw;
-        baro_data.temp_in = 0.0f; 
+        baro_data.depth = g_sensor_data.depth; 
         telemetry_send_baro(&baro_data);
 
         vTaskDelay(pdMS_TO_TICKS(100)); 

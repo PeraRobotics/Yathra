@@ -78,8 +78,8 @@ class RobotLink:
                     if packet_id == TEL_ID_BARO:
                         data = self.ser.read(struct.calcsize(FMT_BARO))
                         if len(data) == struct.calcsize(FMT_BARO):
-                            p_out, p_in, temp = struct.unpack(FMT_BARO, data)
-                            print(f"[BARO] Press: {p_out:.1f} Temp: {temp:.1f}")
+                            p_out, p_in, depth = struct.unpack(FMT_BARO, data)
+                            print(f"[BARO] Press: {p_out:.1f} Press_In: {p_in:.1f} Depth: {depth:.1f}")
 
             except Exception as e:
                 print(f"RX Error: {e}")
