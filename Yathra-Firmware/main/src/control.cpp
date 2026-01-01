@@ -20,7 +20,9 @@
 static const char *TAG = "CONTROL";
 
 // --- Configuration Constants ---
-#define CONTROL_LOOP_FREQ_HZ 10 
+#define CONTROL_LOOP_FREQ_HZ 20 
+#define CONTROL_LOG_FREQ_HZ 5
+#define LOG_THRESHOLD  ((CONTROL_LOOP_FREQ_HZ / CONTROL_LOG_FREQ_HZ) - 2)
 #define CONTROL_LOOP_DELAY   (1000 / CONTROL_LOOP_FREQ_HZ)
 #define DT                   (1.0f / CONTROL_LOOP_FREQ_HZ)
 
@@ -115,7 +117,7 @@ void control_loop_task(void *arg) {
     robot_state.config.ki = 0.0f; 
     robot_state.config.kd = 0.0f;
 
-    robot_state.config.mode = 0; // 0: STABILIZE, 1: MISSION , 2: GUIDED
+    robot_state.config.mode = 1; // 0: STABILIZE, 1: MISSION , 2: GUIDED
     robot_state.config.heading_type = 1; // 0: ABSOLUTE, 1: RELATIVE 
 
     robot_state.target.v = 0.0f; 
@@ -138,7 +140,10 @@ void control_loop_task(void *arg) {
     while(1) {
 
         if (robot_state.config.mode == 1) {
+
+
                 bool running = mission_supervisor.update(DT, &robot_state);
+    
                 if (!running) {
                     robot_state.target.v = 0.0f;
                     robot_state.target.w = 0.0f;
@@ -147,6 +152,7 @@ void control_loop_task(void *arg) {
         } else if  (robot_state.config.mode == 2) {
             telemetry_get_state(&robot_state);
         }
+        
         
         bool imu_ok = imu_get_data(&imu_data);
         bool baro_ok = barometer_get_data(&baro_data);
@@ -214,18 +220,16 @@ void control_loop_task(void *arg) {
                 t[5] = clamp(heave_output - roll_output); // T6: Middle-UP-Left
 
                 static int log_counter = 0;
-                if (log_counter++ > 5) {
+                if (log_counter++ > LOG_THRESHOLD) {
                     printf("\033[2J\033[H");
                     printf(
-                            "========== ROBOT STATUS ==========\n"
-                            "Target V: %5.2f  W: %5.2f  H: %5.2f  |  Head: %6.2f\n"
-                            "Head Err: %6.2f  Roll Err: %6.2f  Depth Err: %6.2f\n"
-                            "Current IMU: H: %6.2f  R: %6.2f  P: %6.2f\n"
-                            "----------------------------------\n"
-                            "   FL: %6.2f      FR: %6.2f\n"
-                            "   ML: %6.2f      MR: %6.2f\n"
-                            "   RL: %6.2f      RR: %6.2f\n"
-                            "==================================\n",
+                            "Tar V: %5.2f W: %5.2f H: %5.2f | H: %6.2f\n"
+                            "Err H: %6.2f  R: %6.2f  D: %6.2f\n"
+                            "Cur H: %6.2f  R: %6.2f  P: %6.2f\n"
+                            "FL: %6.2f FR: %6.2f\n"
+                            "ML: %6.2f MR: %6.2f\n"
+                            "RL: %6.2f RR: %6.2f\n"
+                            "Step: %s\n\n",
                             robot_state.target.v, robot_state.target.w, robot_state.target.h,
                             target_heading,
                             target_heading - imu_data.heading,
@@ -234,7 +238,8 @@ void control_loop_task(void *arg) {
                             imu_data.heading, imu_data.roll, imu_data.pitch,
                             t[1], t[0], // FL, FR
                             t[5], t[4], // ML, MR 
-                            t[3], t[2]  // RL, RR
+                            t[3], t[2],  // RL, RR
+                            mission_supervisor.getCurrentStepName().c_str()
                         );
                     log_counter = 0;
                 }

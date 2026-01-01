@@ -40,6 +40,8 @@ public:
     // Check if mission is running
     bool isActive() const;
 
+    std::string getCurrentStepName() const;
+
 private:
     std::vector<MissionStep> plan;
     int current_step_idx;

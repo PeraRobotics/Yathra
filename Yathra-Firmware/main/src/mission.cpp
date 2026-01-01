@@ -23,6 +23,13 @@ bool MissionManager::isActive() const {
     return is_active;
 }
 
+std::string MissionManager::getCurrentStepName() const {
+    if (!is_active || current_step_idx < 0 || current_step_idx >= plan.size()) {
+        return "IDLE"; // Return generic name if no mission is running
+    }
+    return plan[current_step_idx].name;
+}
+
 bool MissionManager::update(float dt, robot_shared_state_t *state) {
     if (!is_active) return false;
 
