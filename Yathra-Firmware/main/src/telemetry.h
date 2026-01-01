@@ -43,12 +43,15 @@ typedef struct {
     float ki;
     float kd;
     bool motor_rev[6]; // t1_reverse to t6_reverse
+    int mode; // 0: STABILIZE, 1: MISSION , 2: GUIDED
+    int heading_type; // 0: ABSOLUTE, 1: RELATIVE
 } config_cmd_t;
 
 typedef struct {
     float v; // Velocity
     float w; // Angular Velocity
     float h; // Height
+    bool  is_w_head; // Weather W is a angular Velocity or Heading Command
 } target_cmd_t;
 
 // --- Global State Container ---

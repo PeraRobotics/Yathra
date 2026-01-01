@@ -6,6 +6,7 @@
     "board/esp32-wrover-kit-3.3v.cfg"
   ],
   "idf.port": "/dev/ttyUSB0",
+  // "idf.port": "rfc2217://10.193.85.203:4000?ign_set_control",  
   "idf.toolsPath": "/home/jazz/.espressif",
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32"

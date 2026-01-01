@@ -4,6 +4,7 @@ idf_component_register  ( SRCS  "main.cpp"
                                 "src/baro.cpp"
                                 "src/thruster.cpp"
                                 "src/control.cpp"
+                                "src/mission.cpp"
                         INCLUDE_DIRS "." "src"
                         REQUIRES 
                             driver 

@@ -160,7 +160,7 @@ static void run_imu(bool use_mag)
     telemetry_send_ahrs(&ahrs_msg);
     
     // Pause to maintain Sample Rate
-    pause(); 
+    mpu_pause(); 
   }
 }
 
