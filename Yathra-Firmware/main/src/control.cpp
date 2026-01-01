@@ -89,7 +89,7 @@ public:
 void control_loop_task(void *arg) {
 
     // Init Hardware
-    std::vector<int> thruster_pins = {26, 25, 33, 32, 23, 4};
+    std::vector<int> thruster_pins = { 32, 33, 25, 26, 23, 4};
     ThrusterController vehicle;
     vehicle.init(thruster_pins);
     vehicle.stopAll();
@@ -102,10 +102,13 @@ void control_loop_task(void *arg) {
     MissionManager mission_supervisor;
     std::vector<MissionStep> test_mission = {
         // Name        Type         Dura.   Depth   Heading     Surge  HeadingFlag      
-        {"Dive",      MISSION_HOLD, 5.0f,   0.5f,   0.0f,       0.0f,   true}, // Depth 0.5m, Heading 0
-        {"Forward",   MISSION_MOVE, 3.0f,   0.5f,   0.0f,       0.3f,   true}, // Surge 30%
-        {"Turn 90",   MISSION_HOLD, 4.0f,   0.5f,   90.0f,      0.0f,   true}, // Heading 90
-        {"Surface",   MISSION_HOLD, 5.0f,   0.0f,   90.0f,      0.0f,   true}  // Depth 0
+        {"Dive",      MISSION_HOLD, 5.0f,   -0.1f,   0.0f,       0.0f,   false}, // Depth 0.5m, Heading 0
+        {"Forward",   MISSION_MOVE, 3.0f,   -0.1f,   0.0f,       0.2f,   false}, // Surge 30%
+        {"Turn 90",   MISSION_HOLD, 4.0f,   -0.1f,   0.2f,      0.0f,   false}, // Heading 90
+        {"Surface",   MISSION_HOLD, 5.0f,   0.0f,   0.0f,      0.0f,   false},  // Depth 0
+        {"Surface",   MISSION_HOLD, 5.0f,   -0.1f,   0.0f,      0.0f,   false},  // Depth 0
+        {"Turn 90",   MISSION_HOLD, 4.0f,   -0.1f,   -0.2f,      0.0f,   false}, // Heading 90
+         {"Forward",   MISSION_MOVE, 3.0f,  -0.0f,   0.0f,       -0.2f,   false}, // Surge 30%
     };
     mission_supervisor.loadMission(test_mission);
 
@@ -115,7 +118,7 @@ void control_loop_task(void *arg) {
     PIDController pid_roll, pid_heading, pid_height;
     robot_state.config.kp = 0.01f; 
     robot_state.config.ki = 0.0f; 
-    robot_state.config.kd = 0.0f;
+    robot_state.config.kd = 0.005f;
 
     robot_state.config.mode = 1; // 0: STABILIZE, 1: MISSION , 2: GUIDED
     robot_state.config.heading_type = 1; // 0: ABSOLUTE, 1: RELATIVE 
@@ -156,10 +159,12 @@ void control_loop_task(void *arg) {
         
         bool imu_ok = imu_get_data(&imu_data);
         bool baro_ok = barometer_get_data(&baro_data);
-        float t[6] = {0};
+        const int num_trusters = 6;
+        std::vector<float> trusters(num_trusters, 0.0f);
+
 
         if (imu_ok && baro_ok) {
-            
+
             // --- PHASE 1: SENSOR SETTLING ---
             if (!heading_initialized) {
                 if (settle_counter % 10 == 0) {
@@ -193,31 +198,32 @@ void control_loop_task(void *arg) {
 
                 
                 // PID Compute
-                float yaw_output = pid_heading.compute_heading(
-                    target_heading, imu_data.heading, 
-                    robot_state.config.kp, robot_state.config.ki, robot_state.config.kd
-                );
+                // float yaw_output = pid_heading.compute_heading(
+                //     target_heading, imu_data.heading, 
+                //     robot_state.config.kp, robot_state.config.ki, robot_state.config.kd
+                // );
 
-                float heave_output = pid_height.compute(
-                    robot_state.target.h, (float)baro_data.depth, 
-                    robot_state.config.kp, robot_state.config.ki, robot_state.config.kd
-                );
+                // float heave_output = pid_height.compute(
+                //     robot_state.target.h, (float)baro_data.depth, 
+                //     robot_state.config.kp, robot_state.config.ki, robot_state.config.kd
+                // );
 
                 float roll_output = pid_roll.compute(
                     0.0f, imu_data.roll, 
                     robot_state.config.kp, robot_state.config.ki, robot_state.config.kd
                 );
 
-                float surge = robot_state.target.v;
-
+                float surge_output = robot_state.target.v;
+                float yaw_output = robot_state.target.w;
+                float heave_output = robot_state.target.h;
                 // Horizontal (Surge + Yaw)
-                t[0] = clamp(surge - yaw_output); // T1: Front-Right
-                t[1] = clamp(surge + yaw_output); // T2: Front-Left
-                t[2] = clamp(surge - yaw_output); // T3: Rear-Right
-                t[3] = clamp(surge + yaw_output); // T4: Rear-Left
+                trusters[0] = clamp(surge_output - yaw_output); // T1: Front-Right
+                trusters[1] = clamp(surge_output + yaw_output); // T2: Front-Left
+                trusters[2] = clamp(surge_output - yaw_output); // T3: Rear-Right
+                trusters[3] = clamp(surge_output + yaw_output); // T4: Rear-Left
                 // Vertical (Heave + Roll)
-                t[4] = clamp(heave_output + roll_output); // T5: Middle-UP-Right
-                t[5] = clamp(heave_output - roll_output); // T6: Middle-UP-Left
+                trusters[4] = clamp(heave_output + roll_output); // T5: Middle-UP-Right
+                trusters[5] = clamp(heave_output - roll_output); // T6: Middle-UP-Left
 
                 static int log_counter = 0;
                 if (log_counter++ > LOG_THRESHOLD) {
@@ -225,7 +231,7 @@ void control_loop_task(void *arg) {
                     printf(
                             "Tar V: %5.2f W: %5.2f H: %5.2f | H: %6.2f\n"
                             "Err H: %6.2f  R: %6.2f  D: %6.2f\n"
-                            "Cur H: %6.2f  R: %6.2f  P: %6.2f\n"
+                            "Cur H: %6.2f  R: %6.2f  P: %6.2f D:%6.2f\n"
                             "FL: %6.2f FR: %6.2f\n"
                             "ML: %6.2f MR: %6.2f\n"
                             "RL: %6.2f RR: %6.2f\n"
@@ -235,23 +241,28 @@ void control_loop_task(void *arg) {
                             target_heading - imu_data.heading,
                             0.0f - imu_data.roll,
                             robot_state.target.h - (float)baro_data.depth,
-                            imu_data.heading, imu_data.roll, imu_data.pitch,
-                            t[1], t[0], // FL, FR
-                            t[5], t[4], // ML, MR 
-                            t[3], t[2],  // RL, RR
+                            imu_data.heading, imu_data.roll, imu_data.pitch,baro_data.depth,
+                            trusters[1], trusters[0], // FL, FR
+                            trusters[5], trusters[4], // ML, MR 
+                            trusters[3], trusters[2],  // RL, RR
                             mission_supervisor.getCurrentStepName().c_str()
                         );
                     log_counter = 0;
                 }
                 
-                t[0] = 0.0;
-                t[1] = 0.0;
-                t[2] = 0.0;
-                t[3] = 0.0;
-                vehicle.setSpeeds(std::vector<float>(t, t + 1));
+                // trusters[0] = 0.0;
+                // trusters[1] = 0.0;
+                // trusters[2] = 0.0;
+                // trusters[3] = 0.0;
+                // trusters[4] = 0.0;
+                // trusters[5] = 0.0;
+                // vehicle.setSpeeds(std::vector<float>(t, t + 1));
+                // std::vector<float> speeds = {0.0f, 0.0f, 0.0f, 0.0f, 0.1f, 0.1f};
+                vehicle.setSpeeds(trusters);
             }
         
         }else {
+
             vehicle.stopAll();
         }
 

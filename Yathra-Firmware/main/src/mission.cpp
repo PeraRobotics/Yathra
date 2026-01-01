@@ -54,7 +54,7 @@ bool MissionManager::update(float dt, robot_shared_state_t *state) {
     // --- TIMER LOGIC ---
     step_timer += dt;
     if (step_timer >= step.duration_sec) {
-        ESP_LOGI(M_TAG, "Step [%d] '%s' Done (%.1fs).", current_step_idx, step.name.c_str(), step_timer);
+        // ESP_LOGI(M_TAG, "Step [%d] '%s' Done (%.1fs).", current_step_idx, step.name.c_str(), step_timer);
         current_step_idx++;
         step_timer = 0.0f; // Reset for next step
     }

@@ -1,5 +1,8 @@
 python3 -m esp_rfc2217_server -p 4000 /dev/ttyUSB0
 
+sudo chmod 666 /dev/ttyUSB0
+
+sudo ufw allow 4000/tcp
 
 "idf.port": "rfc2217://10.193.85.203:4000?ign_set_control",  
 

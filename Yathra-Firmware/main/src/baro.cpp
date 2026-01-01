@@ -76,6 +76,7 @@ void barometer_task(void *pvParameters)
             }
         }
 
+        // ESP_LOGI(TAG, "HX1: %ld, HX2: %ld, Depth: %.2f cm", val1, val2, g_sensor_data.depth);
         baro_msg_t baro_data;
         baro_data.pressure_out = (float)g_sensor_data.hx1_raw;
         baro_data.pressure_in = (float)g_sensor_data.hx2_raw;
