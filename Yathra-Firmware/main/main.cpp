@@ -9,6 +9,7 @@
 #include "src/telemetry.h"
 #include "src/baro.h"
 #include "control.hpp"
+#include "driver/gpio.h"
 
 static const char* TAG = "SUB_LOG";
 
@@ -16,9 +17,19 @@ static imu_task_config_t imu_cfg = { .enable_mag = false };
  std::vector<int> thruster_pins = { 32, 33, 25, 26, 23, 4};
 ThrusterController vehicle;
 
+#define BUTTON_PIN GPIO_NUM_16
 extern "C" void app_main() { 
 
     ESP_LOGI(TAG, "Starting application");
+
+    gpio_config_t io_conf = {};
+    io_conf.pin_bit_mask = (1ULL << BUTTON_PIN);
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    gpio_config(&io_conf);
+
 
     i2c_util::i2c_init();
     i2c_util::i2c_scan();
@@ -38,8 +49,6 @@ extern "C" void app_main() {
     // vehicle.init(thruster_pins);
     // vehicle.stopAll();
     // vTaskDelay(pdMS_TO_TICKS(3000)); 
-
-
 
     // const int num_motors = 6;
     // const int test_duration = 2000; // Time to run each test in ms (2 seconds)
@@ -78,8 +87,12 @@ extern "C" void app_main() {
     // vehicle.setSpeeds(all_stop);
     // ESP_LOGI("MOTOR_TEST", "Test Sequence Complete.");
     // vTaskDelay(pdMS_TO_TICKS(3000)); 
-    while (true) {
 
+    while (true) {
+        // int state = gpio_get_level(BUTTON_PIN);
+        // if (state == 0) {
+        //     printf("Button is PRESSED!\n");
+        // }
         // std::vector<float> speeds = {0.5f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f};
         // vehicle.setSpeeds(speeds);
         vTaskDelay(pdMS_TO_TICKS(100)); // 10Hz sample rate for printing

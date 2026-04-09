@@ -25,7 +25,7 @@ static const char *TAG = "CONTROL";
 #define LOG_THRESHOLD  ((CONTROL_LOOP_FREQ_HZ / CONTROL_LOG_FREQ_HZ) - 2)
 #define CONTROL_LOOP_DELAY   (1000 / CONTROL_LOOP_FREQ_HZ)
 #define DT                   (1.0f / CONTROL_LOOP_FREQ_HZ)
-
+#define BUTTON_PIN GPIO_NUM_16
 
 // --- Helper: Clamp Thruster Values ---
 float clamp(float value) {
@@ -102,17 +102,17 @@ void control_loop_task(void *arg) {
     MissionManager mission_supervisor;
     std::vector<MissionStep> test_mission = {
         // Name        Type         Dura.   Depth   Heading     Surge  HeadingFlag      
-        {"Dive",      MISSION_HOLD, 5.0f,   -0.1f,   0.0f,       0.0f,   false}, // Depth 0.5m, Heading 0
-        {"Forward",   MISSION_MOVE, 3.0f,   -0.1f,   0.0f,       0.2f,   false}, // Surge 30%
-        {"Turn 90",   MISSION_HOLD, 4.0f,   -0.1f,   0.2f,      0.0f,   false}, // Heading 90
-        {"Surface",   MISSION_HOLD, 5.0f,   0.0f,   0.0f,      0.0f,   false},  // Depth 0
-        {"Surface",   MISSION_HOLD, 5.0f,   -0.1f,   0.0f,      0.0f,   false},  // Depth 0
-        {"Turn 90",   MISSION_HOLD, 4.0f,   -0.1f,   -0.2f,      0.0f,   false}, // Heading 90
-         {"Forward",   MISSION_MOVE, 3.0f,  -0.0f,   0.0f,       -0.2f,   false}, // Surge 30%
+        {"Dive",      MISSION_HOLD, 5.0f,   -0.1f,   0.0f,       0.0f,   false}, // Depth 0.5m, Heading 0        
+        {"Forward",   MISSION_MOVE, 2.0f,   -0.1f,   0.0f,       0.0f,   false}, // Surge 30%
+        {"Turn 90",   MISSION_HOLD, 5.0f,   -0.1f,   0.0f,      0.5f,   false}, // Heading 90
+        {"Forward",   MISSION_MOVE, 2.0f,  -0.1f,   0.2f,       0.0f,   false}, // Surge 30%
+        {"Turn 90",   MISSION_HOLD, 2.0f,   -0.1f,   0.0f,      0.0f,   false}, // Heading 90
+        {"Forward",   MISSION_MOVE, 4.0f,  -0.1f,   0.0f,       -0.75f,   false}, // Surge 30%
+        {"Turn 90",   MISSION_HOLD, 2.0f,   -0.1f,   0.2f,      0.0f,   false}, // Heading 90
+        {"Turn 90",   MISSION_HOLD, 2.0f,   -0.1f,   0.0f,      0.0f,   false}, // Heading 90
+        {"Turn 90",   MISSION_HOLD, 2.0f,   -0.1f,   -0.3f,      0.8f,   false}, // Heading 90
     };
-    mission_supervisor.loadMission(test_mission);
-
-
+    // mission_supervisor.loadMission(test_mission);
 
     // Initialize PIDs
     PIDController pid_roll, pid_heading, pid_height;
@@ -137,21 +137,72 @@ void control_loop_task(void *arg) {
     int settle_counter = 0;
 
     ESP_LOGI(TAG, "Control Loop Started.");
-    TickType_t xLastWakeTime = xTaskGetTickCount();
-
-
+    TickType_t xLastWakeTime = xTaskGetTickCount(); 
+    const TickType_t LONG_PRESS_TICKS = pdMS_TO_TICKS(2000);
+    TickType_t press_start_tick = 0;
+    bool is_pressed = false;
+    bool long_press_action_taken = false;
+    int last_btn_state = 1;
     while(1) {
 
-        if (robot_state.config.mode == 1) {
+        int curr_btn_state = gpio_get_level(BUTTON_PIN);
+        if (last_btn_state == 1 && curr_btn_state == 0) {
+            press_start_tick = xTaskGetTickCount();
+            is_pressed = true;
+            long_press_action_taken = false;
+        }
 
 
-                bool running = mission_supervisor.update(DT, &robot_state);
-    
-                if (!running) {
+        if (curr_btn_state == 0) {
+            TickType_t current_tick = xTaskGetTickCount();
+            
+            // Check if held longer than threshold AND action not yet taken
+            if ((current_tick - press_start_tick) > LONG_PRESS_TICKS) {
+                if (!long_press_action_taken) {
+                    // --- LONG PRESS DETECTED: STOP ---
+                    ESP_LOGW(TAG, "Long Press Detected: STOPPING MISSION!");
+                    vehicle.stopAll();
+                    vTaskDelay(pdMS_TO_TICKS(3000));
+                    mission_supervisor.loadMission(test_mission);
+  
+                    
+                    // Mark as handled so we don't trigger it again or trigger "Start" on release
+                    long_press_action_taken = true; 
+                }
+            }
+        }
+
+        // 3. DETECT RELEASE (Rising Edge 0 -> 1)
+        if (last_btn_state == 0 && curr_btn_state == 1) {
+            is_pressed = false;
+
+            // Only Start if it wasn't a long press (Short Click)
+            if (!long_press_action_taken) {
+                // --- SHORT PRESS DETECTED: START/RESTART ---
+                ESP_LOGI(TAG, "Short Press: Starting Mission...");
+                    mission_supervisor.stop();
+                    
+                    // SAFETY: Kill motors immediately
                     robot_state.target.v = 0.0f;
                     robot_state.target.w = 0.0f;
                     robot_state.target.h = 0.0f;
-                }
+                
+            }
+        }
+
+        last_btn_state = curr_btn_state;
+
+        if (robot_state.config.mode == 1) {
+
+            
+
+            bool running = mission_supervisor.update(DT, &robot_state);
+
+            if (!running) {
+                robot_state.target.v = 0.0f;
+                robot_state.target.w = 0.0f;
+                robot_state.target.h = 0.0f;
+            }
         } else if  (robot_state.config.mode == 2) {
             telemetry_get_state(&robot_state);
         }
@@ -179,22 +230,22 @@ void control_loop_task(void *arg) {
             }
             // Phase 2: Active Control
             else{
-                if(robot_state.target.is_w_head){
-                    //  If w is a heading angle
-                    if(robot_state.config.heading_type == 1){
-                        // Heading Control is Relative to Current heading
-                        if(heading_offset != robot_state.target.w){
-                            heading_offset = robot_state.target.w;
-                            target_heading += robot_state.target.w;
-                        }
-                    }else{
-                        target_heading = robot_state.target.w;
-                    }
-                }else{
-                    // If w is a angular velocity
-                    target_heading += robot_state.target.w * DT;
-                    target_heading = normalize_angle(target_heading);
-                }  
+                // if(robot_state.target.is_w_head){
+                //     //  If w is a heading angle
+                //     if(robot_state.config.heading_type == 1){
+                //         // Heading Control is Relative to Current heading
+                //         if(heading_offset != robot_state.target.w){
+                //             heading_offset = robot_state.target.w;
+                //             target_heading += robot_state.target.w;
+                //         }
+                //     }else{
+                //         target_heading = robot_state.target.w;
+                //     }
+                // }else{
+                //     // If w is a angular velocity
+                //     target_heading += robot_state.target.w * DT;
+                //     target_heading = normalize_angle(target_heading);
+                // }  
 
                 
                 // PID Compute
